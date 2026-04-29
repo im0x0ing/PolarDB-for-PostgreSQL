@@ -1,4 +1,4 @@
-FROM docker.1ms.run/openanolis/anolisos:8
+FROM openanolis/anolisos:8
 
 COPY PolarDB-*.rpm /tmp/
 COPY polardb-entrypoint.sh /usr/local/bin/polardb-entrypoint.sh
