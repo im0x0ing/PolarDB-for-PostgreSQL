@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     tags:
-      - "v17.*"
+      - "sealos-v17.*"
 
 permissions:
   contents: read
