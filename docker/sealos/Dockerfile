@@ -1,7 +1,7 @@
 FROM openanolis/anolisos:8
 
-# install nss_wrapper for arbitrary UID support (K8s securityContext)
-RUN dnf -y --setopt=install_weak_deps=False install nss_wrapper wget \
+# install runtime helpers used by the entrypoint and initdb scripts
+RUN dnf -y --setopt=install_weak_deps=False install ca-certificates gzip nss_wrapper wget xz zstd \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
@@ -20,6 +20,12 @@ RUN set -eux; \
     gosu nobody true
 
 ENV LANG en_US.UTF-8
+ENV PATH=/u01/polardb_pg/bin:$PATH
+ENV PG_MAJOR 15
+ENV PGDATA /var/polardb/primary
+ENV POLARDB_DATA_ROOT=/var/polardb
+ENV POLARDB_SHARED_DIR=/var/polardb/shared
+ENV POLARDB_PORT=5432
 
 RUN mkdir /docker-entrypoint-initdb.d
 
@@ -32,10 +38,10 @@ RUN set -eux; \
     POLARDB_INSTALL_DIR="$(find /u01 -maxdepth 3 -type f -path '*/bin/postgres' -print -quit | sed 's#/bin/postgres##')"; \
     test -n "$POLARDB_INSTALL_DIR"; \
     if [ "$POLARDB_INSTALL_DIR" != "/u01/polardb_pg" ]; then ln -sfn "$POLARDB_INSTALL_DIR" /u01/polardb_pg; fi; \
-    mkdir -p "$PGDATA" /var/run/postgresql; \
-    chown -R postgres:postgres /var/polardb "$POLARDB_INSTALL_DIR" /var/run/postgresql; \
+    mkdir -p "$PGDATA" "$POLARDB_SHARED_DIR" /var/run/postgresql; \
+    chown -R postgres:postgres "$POLARDB_DATA_ROOT" "$POLARDB_INSTALL_DIR" /var/run/postgresql; \
     chown -h postgres:postgres /u01/polardb_pg; \
-    chmod 1777 /var/polardb; \
+    chmod 1777 "$POLARDB_DATA_ROOT"; \
     chmod 03775 /var/run/postgresql; \
     chmod +x /usr/local/bin/polardb-entrypoint.sh /usr/local/bin/polardb-ensure-initdb.sh; \
     ln -sT polardb-entrypoint.sh /usr/local/bin/docker-entrypoint.sh; \
@@ -44,13 +50,6 @@ RUN set -eux; \
     ln -sT polardb-ensure-initdb.sh /usr/local/bin/polardb-enforce-initdb.sh; \
     rm -f /tmp/PolarDB-*.rpm; \
     rm -rf /var/cache/dnf
-
-ENV PATH=/u01/polardb_pg/bin:$PATH
-ENV PG_MAJOR 15
-ENV PGDATA /var/polardb/primary
-ENV POLARDB_DATA_ROOT=/var/polardb
-ENV POLARDB_SHARED_DIR=/var/polardb/shared
-ENV POLARDB_PORT=5432
 
 EXPOSE 5432
 

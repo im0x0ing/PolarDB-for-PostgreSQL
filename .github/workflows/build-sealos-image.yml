@@ -150,18 +150,18 @@ jobs:
 
           docker volume create "$volume"
           docker run -d --name polardb-test \
-            -e POSTGRES_PASSWORD=test \
-            -v "$volume":/var/lib/polardb \
+            -e POLARDB_PASSWORD=test \
+            -v "$volume":/var/polardb \
             "$image"
 
           wait_ready polardb-test
-          docker exec polardb-test psql -h 127.0.0.1 -p 5432 -U postgres postgres -c "SELECT version();"
+          docker exec -e PGPASSWORD=test polardb-test psql -h 127.0.0.1 -p 5432 -U postgres postgres -c "SELECT version();"
           docker logs polardb-test | grep "PolarDB initialization completed"
           docker rm -f polardb-test
 
           docker run -d --name polardb-test-restart \
-            -e POSTGRES_PASSWORD=test \
-            -v "$volume":/var/lib/polardb \
+            -e POLARDB_PASSWORD=test \
+            -v "$volume":/var/polardb \
             "$image"
 
           wait_ready polardb-test-restart

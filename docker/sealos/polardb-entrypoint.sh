@@ -4,7 +4,8 @@ set -Eeo pipefail
 
 
 BASE=${POLARDB_HOME:-/u01/polardb_pg}
-SHARED=${POLARDB_SHARED_DIR:-/var/polardb/shared}
+DATA_ROOT=${POLARDB_DATA_ROOT:-/var/polardb}
+SHARED=${POLARDB_SHARED_DIR:-$DATA_ROOT/shared}
 # usage: file_env VAR [DEFAULT]
 #    ie: file_env 'XYZ_DB_PASSWORD' 'example'
 # (will allow for "$XYZ_DB_PASSWORD_FILE" to fill in the value of
@@ -39,9 +40,11 @@ _is_sourced() {
 docker_create_db_directories() {
 	local user; user="$(id -u)"
 
-	mkdir -p "$PGDATA"
+	mkdir -p "$DATA_ROOT" "$PGDATA" "$SHARED"
+	chmod 01777 "$DATA_ROOT" || :
 	# ignore failure since there are cases where we can't chmod (and PostgreSQL might fail later anyhow - it's picky about permissions of this directory)
 	chmod 00700 "$PGDATA" || :
+	chmod 00700 "$SHARED" || :
 
 	# ignore failure since it will be fine when using the image provided directory; see also https://github.com/docker-library/postgres/pull/289
 	mkdir -p /var/run/postgresql || :
@@ -58,7 +61,7 @@ docker_create_db_directories() {
 
 	# allow the container to be started with `--user`
 	if [ "$user" = '0' ]; then
-		find "$PGDATA" \! -user postgres -exec chown postgres '{}' +
+		find "$DATA_ROOT" "$PGDATA" "$SHARED" \! -user postgres -exec chown postgres '{}' +
 		find /var/run/postgresql \! -user postgres -exec chown postgres '{}' +
 	fi
 }
@@ -288,6 +291,17 @@ pg_setup_hba_conf() {
 	} >> "$PGDATA/pg_hba.conf"
 }
 
+polardb_setup_cluster() {
+	cat "$BASE/share/postgresql/polardb.conf.sample" >> "$PGDATA/postgresql.conf"
+	{
+		echo "port = ${POLARDB_PORT:-5432}"
+		echo "polar_datadir = 'file-dio://$SHARED'"
+	} >> "$PGDATA/postgresql.conf"
+	mkdir -p "$SHARED"
+	"$BASE/bin/polar-initdb.sh" "$PGDATA/" "$SHARED/" primary localfs
+	echo "PolarDB initialization completed"
+}
+
 # start socket-only postgresql server for setting up or running scripts
 # all arguments will be passed along as arguments to `postgres` (via pg_ctl)
 docker_temp_server_start() {
@@ -357,14 +371,7 @@ _main() {
 			docker_init_database_dir
 			pg_setup_hba_conf "$@"
 
-			# PolarDB-specific: append configuration and initialize shared storage
-			cat "$BASE/share/postgresql/polardb.conf.sample" >> "$PGDATA/postgresql.conf"
-			{
-				echo "port = ${POLARDB_PORT:-5432}"
-				echo "polar_datadir = 'file-dio://$SHARED'"
-			} >> "$PGDATA/postgresql.conf"
-			mkdir -p "$SHARED"
-			"$BASE/bin/polar-initdb.sh" "$PGDATA/" "$SHARED/" primary localfs
+			polardb_setup_cluster
 
 			# PGPASSWORD is required for psql when authentication is required for 'local' connections via pg_hba.conf and is otherwise harmless
 			# e.g. when '--auth=md5' or '--auth-local=md5' is used in POLARDB_INITDB_ARGS
@@ -383,6 +390,8 @@ _main() {
 
 			EOM
 		else
+			echo
+			echo 'PolarDB data directory already initialized, skipping init'
 			cat <<-'EOM'
 
 				PostgreSQL Database directory appears to contain a database; Skipping initialization

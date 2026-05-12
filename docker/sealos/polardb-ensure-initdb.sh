@@ -41,14 +41,7 @@ if [ -z "$DATABASE_ALREADY_EXISTS" ]; then
 	docker_init_database_dir
 	pg_setup_hba_conf "$@"
 
-		# PolarDB-specific: append configuration and initialize shared storage
-		cat "$BASE/share/postgresql/polardb.conf.sample" >> "$PGDATA/postgresql.conf"
-		{
-			echo "port = ${POLARDB_PORT:-5432}"
-			echo "polar_datadir = 'file-dio://$SHARED'"
-		} >> "$PGDATA/postgresql.conf"
-		mkdir -p "$SHARED"
-		"$BASE/bin/polar-initdb.sh" "$PGDATA/" "$SHARED/" primary localfs
+	polardb_setup_cluster
 
 	# PGPASSWORD is required for psql when authentication is required for 'local' connections via pg_hba.conf and is otherwise harmless
 	# e.g. when '--auth=md5' or '--auth-local=md5' is used in POLARDB_INITDB_ARGS
