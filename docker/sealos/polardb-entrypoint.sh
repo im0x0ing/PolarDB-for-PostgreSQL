@@ -215,7 +215,7 @@ docker_process_sql() {
 		query_runner+=( --dbname "$POLARDB_DB" )
 	fi
 
-	PGHOST= PGHOSTADDR= "${query_runner[@]}" "$@"
+	PGHOST="${PGHOST:-/var/run/postgresql}" PGHOSTADDR= "${query_runner[@]}" "$@"
 }
 
 # create initial database
@@ -295,11 +295,12 @@ polardb_setup_cluster() {
 	cat "$BASE/share/postgresql/polardb.conf.sample" >> "$PGDATA/postgresql.conf"
 	{
 		echo "port = ${POLARDB_PORT:-5432}"
+		echo "unix_socket_directories = '/var/run/postgresql'"
 		echo "polar_datadir = 'file-dio://$SHARED'"
+		echo "logging_collector = off"
 	} >> "$PGDATA/postgresql.conf"
 	mkdir -p "$SHARED"
 	"$BASE/bin/polar-initdb.sh" "$PGDATA/" "$SHARED/" primary localfs
-	echo "PolarDB initialization completed"
 }
 
 # start socket-only postgresql server for setting up or running scripts
@@ -311,7 +312,7 @@ docker_temp_server_start() {
 
 	# internal start of server in order to allow setup using psql client
 	# does not listen on external TCP/IP and waits until start finishes
-	set -- "$@" -c listen_addresses='' -p "${POLARDB_PORT:-5432}"
+	set -- "$@" -c listen_addresses='' -k /var/run/postgresql -p "${POLARDB_PORT:-5432}"
 
 	# unset NOTIFY_SOCKET so the temporary server doesn't prematurely notify
 	# any process supervisor.
@@ -383,6 +384,7 @@ _main() {
 
 			docker_temp_server_stop
 			unset PGPASSWORD
+			echo "PolarDB initialization completed"
 
 			cat <<-'EOM'
 

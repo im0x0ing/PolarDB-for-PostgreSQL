@@ -53,6 +53,7 @@ if [ -z "$DATABASE_ALREADY_EXISTS" ]; then
 
 	docker_temp_server_stop
 	unset PGPASSWORD
+	echo "PolarDB initialization completed"
 else
 	self="$(basename "$0")"
 	case "$self" in
