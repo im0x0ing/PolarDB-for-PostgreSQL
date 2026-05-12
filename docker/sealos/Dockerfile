@@ -1,7 +1,7 @@
 FROM openanolis/anolisos:8
 
 # install runtime helpers used by the entrypoint and initdb scripts
-RUN dnf -y --setopt=install_weak_deps=False install ca-certificates gzip nss_wrapper wget xz zstd \
+RUN dnf -y --setopt=install_weak_deps=False install ca-certificates glibc-langpack-en gzip nss_wrapper wget xz zstd \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
