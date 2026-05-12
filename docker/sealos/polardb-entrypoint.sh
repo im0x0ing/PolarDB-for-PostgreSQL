@@ -210,7 +210,7 @@ docker_process_init_files() {
 #    ie: docker_process_sql -f my-file.sql
 #    ie: docker_process_sql <my-file.sql
 docker_process_sql() {
-	local query_runner=( psql -v ON_ERROR_STOP=1 --username "$POLARDB_USER" --no-password --no-psqlrc )
+	local query_runner=( psql -v ON_ERROR_STOP=1 --username "$POLARDB_USER" --no-password --no-psqlrc --port "${POLARDB_PORT:-5432}" )
 	if [ -n "$POLARDB_DB" ]; then
 		query_runner+=( --dbname "$POLARDB_DB" )
 	fi
