@@ -21,6 +21,7 @@ jobs:
     outputs:
       meta-images: ${{ steps.meta-images.outputs.value }}
       primary-image: ${{ steps.meta-images.outputs.primary-image }}
+      pg15-meta-images: ${{ steps.meta-images.outputs.pg15-value }}
       cluster-images: ${{ steps.meta-images.outputs.cluster-images }}
     steps:
       - name: Build image metadata inputs
@@ -76,6 +77,13 @@ jobs:
 
             echo "primary-image=$ghcr_image"
 
+            echo 'pg15-value<<EOF'
+            echo "${ghcr_image}-pg15"
+            if [ -n "${dockerhub_image:-}" ]; then
+              echo "${dockerhub_image}-pg15"
+            fi
+            echo 'EOF'
+
             echo 'cluster-images<<EOF'
             echo "${ghcr_image}-cluster"
             if [ -n "${dockerhub_image:-}" ]; then
@@ -85,7 +93,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   docker-build:
-    name: Docker Build
+    name: Docker Build PG17
     needs: docker-prepare
     permissions:
       contents: read
@@ -109,6 +117,49 @@ jobs:
       set-meta-annotations: true
       set-meta-labels: true
       meta-images: ${{ needs.docker-prepare.outputs.meta-images }}
+      meta-tags: |
+        type=ref,event=branch
+        type=ref,event=pr
+        type=ref,event=tag
+        type=semver,pattern={{version}}
+        type=semver,pattern={{major}}.{{minor}}
+        type=sha
+    secrets:
+      registry-auths: |
+        - registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ${{ (vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME) != '' && format('- registry: docker.io
+          username: {0}
+          password: {1}', vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME, secrets.DOCKERHUB_PASSWORD) || '' }}
+
+  docker-build-pg15:
+    name: Docker Build PG15
+    needs: docker-prepare
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: docker/github-builder/.github/workflows/build.yml@v1
+    with:
+      runner: |
+        default=ubuntu-24.04
+        linux/arm=ubuntu-24.04-arm
+        linux/arm64=ubuntu-24.04-arm
+      distribute: true
+      platforms: linux/amd64,linux/arm64
+      file: Dockerfile.pg15
+      output: ${{ github.event_name == 'push' && 'image' || 'local' }}
+      push: ${{ github.event_name == 'push' }}
+      artifact-upload: ${{ github.event_name != 'push' }}
+      artifact-name: polardb-pg15-dockerbuild
+      sign: ${{ github.event_name == 'push' && 'auto' || 'false' }}
+      cache: true
+      cache-mode: max
+      cache-scope: polardb-pg15-mongo-image
+      set-meta-annotations: true
+      set-meta-labels: true
+      meta-images: ${{ needs.docker-prepare.outputs.pg15-meta-images }}
       meta-tags: |
         type=ref,event=branch
         type=ref,event=pr

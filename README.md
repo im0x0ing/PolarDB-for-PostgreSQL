@@ -66,6 +66,12 @@ documentdb.enableIndexOrderbyPushdown = true
 docker build -t polardb17-documentdb-ferretdb:latest .
 ```
 
+PolarDB 15 使用独立入口，流程保持和 17 一致，仅替换 PolarDB 15 对应的源码分支、提交和 RPM 安装路径：
+
+```bash
+docker build -f Dockerfile.pg15 -t polardb15-documentdb-ferretdb:latest .
+```
+
 Dockerfile 使用 BuildKit cache mount 缓存 `dnf` 包下载和 GEOS/PostGIS 源码压缩包。GitHub Actions workflow 也开启了远端构建缓存。PolarDB、DocumentDB 和 PGXS 扩展的编译输出没有单独做目录级缓存，避免 PostgreSQL/PolarDB ABI、头文件或扩展版本变化时复用到不匹配的对象文件。
 
 构建实践：
